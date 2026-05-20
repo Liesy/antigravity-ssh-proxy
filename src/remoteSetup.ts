@@ -16,8 +16,15 @@ export function generateRollbackScript(): string {
     return `#!/bin/bash
 set -e
 
-# Find all backup files and restore them
-BAKS=$(find "$HOME/.antigravity-server" -path "*/extensions/antigravity/bin/*" -name "language_server_linux_*.bak" -type f 2>/dev/null)
+# Search in all possible server directories (new name first, then legacy)
+BAKS=""
+for DIR in "$HOME/.antigravity-ide-server" "$HOME/.antigravity-server"; do
+    FOUND=$(find "$DIR" -path "*/extensions/antigravity/bin/*" -name "language_server_linux_*.bak" -type f 2>/dev/null)
+    [ -n "$FOUND" ] && BAKS="$BAKS
+$FOUND"
+done
+BAKS=$(echo "$BAKS" | sed '/^$/d')
+
 [ -z "$BAKS" ] && echo "Nothing to rollback" && exit 0
 
 RESTORED=0

@@ -85,12 +85,41 @@ debug_log "Expected Binary: $EXPECTED_BINARY"
 debug_log "Expected Library: $EXPECTED_LIB"
 
 # ============================================================================
+# Server Directory Discovery
+# ============================================================================
+# Antigravity IDE has used different directory names across versions:
+#   - .antigravity-ide-server (new, 2.x+)
+#   - .antigravity-server (legacy)
+# We search for the actual directory in priority order.
+# ============================================================================
+POSSIBLE_SERVER_DIRS=(
+    "$HOME/.antigravity-ide-server"
+    "$HOME/.antigravity-server"
+)
+
+SERVER_DIR=""
+for dir in "${POSSIBLE_SERVER_DIRS[@]}"; do
+    if [ -d "$dir/bin" ]; then
+        SERVER_DIR="$dir"
+        break
+    fi
+done
+
+if [ -z "$SERVER_DIR" ]; then
+    error_log "No Antigravity server directory found!"
+    error_log "Searched: ${POSSIBLE_SERVER_DIRS[*]}"
+    exit 1
+fi
+
+info_log "Server Directory: $SERVER_DIR"
+
+# ============================================================================
 # Scan for extension directories (for debugging)
 # ============================================================================
 if [ "$DEBUG" = "1" ]; then
     echo ""
     echo "[SCAN] Searching for extension directories..."
-    EXT_DIRS=$(ls -d "$HOME/.antigravity-server/extensions/"*antigravity-ssh-proxy* 2>/dev/null | sort -t'-' -k3 -V -r || echo "")
+    EXT_DIRS=$(ls -d "$SERVER_DIR/extensions/"*antigravity-ssh-proxy* 2>/dev/null | sort -t'-' -k3 -V -r || echo "")
     if [ -n "$EXT_DIRS" ]; then
         echo "$EXT_DIRS" | while read -r dir; do
             echo "  📦 $dir"
@@ -181,7 +210,7 @@ check_needs_update() {
 # Find Language Servers
 # ============================================================================
 echo "[SEARCH] Looking for language servers..."
-TARGETS=$(find "$HOME/.antigravity-server/bin" -path "*/extensions/antigravity/bin/language_server_linux_*" -type f 2>/dev/null | grep -v ".bak$")
+TARGETS=$(find "$SERVER_DIR/bin" -path "*/extensions/antigravity/bin/language_server_linux_*" -type f 2>/dev/null | grep -v ".bak$")
 
 if [ -z "$TARGETS" ]; then
     error_log "No language servers found!"
@@ -291,7 +320,8 @@ find_binaries() {
     fi
     
     # Method 2: Fallback - search in all versions (sorted by version, newest first)
-    for dir in $(ls -d "$HOME/.antigravity-server/extensions/"*antigravity-ssh-proxy*/resources/bin 2>/dev/null | sort -t'-' -k3 -V -r); do
+    # Search in all possible server directories (new name first, then legacy)
+    for dir in $(ls -d "$HOME/.antigravity-ide-server/extensions/"*antigravity-ssh-proxy*/resources/bin "$HOME/.antigravity-server/extensions/"*antigravity-ssh-proxy*/resources/bin 2>/dev/null | sort -t'-' -k3 -V -r); do
         if [ -f "$dir/$binary_name" ]; then
             echo "$dir/$binary_name"
             if [ -f "$dir/$lib_name" ]; then

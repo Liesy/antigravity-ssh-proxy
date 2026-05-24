@@ -8,6 +8,12 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+/**
+ * Possible Antigravity server directory names, in priority order.
+ * IDE renamed from .antigravity-server to .antigravity-ide-server in 2.x+.
+ */
+const SERVER_DIR_NAMES = ['.antigravity-ide-server', '.antigravity-server'];
+
 export interface DiagnosticCheck {
     id: string;
     name: string;
@@ -221,15 +227,20 @@ async function checkMgraftcp(extensionPath?: string): Promise<DiagnosticCheck> {
             }
         }
         
-        // Method 2: Fallback - search in all versions (sorted by version, newest first)
+        // Method 2: Fallback - search in all possible server dirs and versions
         if (!binaryPath) {
-            const searchPattern = `${homeDir}/.antigravity-server/extensions/*antigravity-ssh-proxy*/resources/bin/${binaryName}`;
-            const { stdout } = await execAsync(`ls ${searchPattern} 2>/dev/null | sort -V -r | head -1`);
-            binaryPath = stdout.trim();
-            
-            if (binaryPath) {
-                // Check if executable
-                await fs.access(binaryPath, fs.constants.X_OK);
+            for (const dirName of SERVER_DIR_NAMES) {
+                const searchPattern = `${homeDir}/${dirName}/extensions/*antigravity-ssh-proxy*/resources/bin/${binaryName}`;
+                try {
+                    const { stdout } = await execAsync(`ls ${searchPattern} 2>/dev/null | sort -V -r | head -1`);
+                    binaryPath = stdout.trim();
+                    if (binaryPath) {
+                        await fs.access(binaryPath, fs.constants.X_OK);
+                        break;
+                    }
+                } catch {
+                    binaryPath = '';
+                }
             }
         }
 
@@ -283,10 +294,19 @@ async function checkLanguageServerWrapper(extensionPath?: string): Promise<Diagn
             return check;
         }
         
-        const { stdout } = await execAsync(
-            `find "$HOME/.antigravity-server/bin" -path "*/extensions/antigravity/bin/language_server_linux_*" -type f 2>/dev/null | grep -v ".bak$" | head -1`
-        );
-        const targetPath = stdout.trim();
+        // Search in all possible server directories
+        let targetPath = '';
+        for (const dirName of SERVER_DIR_NAMES) {
+            try {
+                const { stdout } = await execAsync(
+                    `find "$HOME/${dirName}/bin" -path "*/extensions/antigravity/bin/language_server_linux_*" -type f 2>/dev/null | grep -v ".bak$" | head -1`
+                );
+                targetPath = stdout.trim();
+                if (targetPath) { break; }
+            } catch {
+                // continue to next directory
+            }
+        }
 
         if (!targetPath) {
             check.status = 'warning';

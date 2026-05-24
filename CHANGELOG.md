@@ -2,6 +2,16 @@
 
 All notable changes to the "Antigravity SSH Proxy" extension will be documented in this file.
 
+## [0.0.17] - 2026-05-25
+
+### Changed
+
+- **Antigravity IDE Rename**: Adapted to the renamed server directory (`.antigravity-ide-server`) introduced in the latest Antigravity IDE, while maintaining backward compatibility with the old directory name (`.antigravity-server`).
+
+### Updated
+
+- **mgraftcp Upstream Sync**: Merged the latest updates from the graftcp main branch and integrated the socket matching fix from [YQYANG2233/graftcp-local-socket-match-fix](https://github.com/YQYANG2233/graftcp-local-socket-match-fix) to resolve connection ambiguity under high-concurrency localhost short-lived connections.
+
 ## [0.0.15] - 2026-02-27
 
 ### Added
